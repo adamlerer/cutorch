@@ -53,7 +53,7 @@ void THCudaInit(THCState* state)
 
     /* Allocate scratch space for each stream */
     res->devScratchSpacePerStream = (void**) malloc(sizeof(void*));
-    THCudaCheck(cudaMalloc(&res->devScratchSpacePerStream[0],
+    THCudaCheck(THCudaMalloc(&res->devScratchSpacePerStream[0],
                            sizePerStream));
   }
 
@@ -191,7 +191,7 @@ void THCState_reserveStreams(THCState* state, int numStreams)
       newStreams[stream] = NULL;
       THCudaCheck(cudaStreamCreate(newStreams + stream));
       newScratchSpace[stream] = NULL;
-      THCudaCheck(cudaMalloc(&newScratchSpace[stream], scratchSpaceSize));
+      THCudaCheck(THCudaMalloc(&newScratchSpace[stream], scratchSpaceSize));
     }
 
     THCCudaResourcesPerDevice* res = THCState_getDeviceResourcePtr(state, dev);
@@ -477,8 +477,27 @@ void __THCublasCheck(cublasStatus_t status, const char *file, const int line)
         break;
     }
 
-    _THError(file, line, "%s(%i) : cublas runtime error : %s", errmsg);
+    _THError(file, line, "cublas runtime error : %s", errmsg);
   }
+}
+
+static __thread void (*cutorchGCFunction)(void *data) = NULL;
+static __thread void *cutorchGCData = NULL;
+
+void THCSetGCHandler( void (*cutorchGCFunction_)(void *data), void *data )
+{
+  cutorchGCFunction = cutorchGCFunction_;
+  cutorchGCData = data;
+}
+
+cudaError_t THCudaMalloc(void** ptr, size_t size)
+{
+  cudaError_t err = cudaMalloc(ptr, size);
+  if(err != cudaSuccess && cutorchGCFunction != NULL) {
+    cutorchGCFunction(cutorchGCData);
+    err = cudaMalloc(ptr, size);
+  }
+  return err;
 }
 
 #undef GLOBAL_SCRATCH_SPACE_PER_SM_STREAM

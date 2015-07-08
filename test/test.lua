@@ -2212,9 +2212,6 @@ end
 
 function cutorch.test(tests, seed)
    initSeed(seed)
-   math.randomseed(os.time())
-   torch.manualSeed(os.time())
-   cutorch.manualSeedAll(os.time())
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)

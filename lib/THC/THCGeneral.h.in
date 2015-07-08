@@ -114,4 +114,7 @@ THC_API size_t THCState_getDeviceScratchSpaceSize(THCState* state, int device);
 THC_API void __THCudaCheck(cudaError_t err, const char *file, const int line);
 THC_API void __THCublasCheck(cublasStatus_t status, const char *file, const int line);
 
+THC_API cudaError_t THCudaMalloc(void **ptr, size_t size);
+THC_API void THCSetGCHandler( void (*torchGCHandlerFunction)(void *data), void *data );
+
 #endif

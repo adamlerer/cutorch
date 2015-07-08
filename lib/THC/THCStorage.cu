@@ -27,7 +27,7 @@ void THCudaStorage_resize(THCState *state, THCudaStorage *self, long size)
   else
   {
     float *data = NULL;
-    THCudaCheck(cudaMalloc((void**)(&data), size * sizeof(float)));
+    THCudaCheck(THCudaMalloc((void**)(&data), size * sizeof(float)));
 
     if (self->data) {
       THCudaCheck(cudaMemcpyAsync(data,

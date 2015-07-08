@@ -756,10 +756,18 @@ static const struct luaL_Reg cutorch_stuff__ [] = {
   {NULL, NULL}
 };
 
+static void luaCutorchGCFunction(void *data)
+{
+  lua_State *L = data;
+  lua_gc(L, LUA_GCCOLLECT, 0);
+}
+
 LUA_EXTERNC DLL_EXPORT int luaopen_libcutorch(lua_State *L);
 
 int luaopen_libcutorch(lua_State *L)
 {
+  THCSetGCHandler(luaCutorchGCFunction, L);
+
   lua_newtable(L);
   luaL_setfuncs(L, cutorch_stuff__, 0);
 

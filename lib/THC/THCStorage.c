@@ -33,7 +33,7 @@ THCudaStorage* THCudaStorage_newWithSize(THCState *state, long size)
   if(size > 0)
   {
     THCudaStorage *storage = (THCudaStorage*)THAlloc(sizeof(THCudaStorage));
-    THCudaCheck(cudaMalloc((void**)&(storage->data), size * sizeof(float)));
+    THCudaCheck(THCudaMalloc((void**)&(storage->data), size * sizeof(float)));
 
     storage->size = size;
     storage->refcount = 1;
