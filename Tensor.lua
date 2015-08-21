@@ -21,55 +21,55 @@ end
 local function Tensor__typeAs(self,tensor)
    return self:type(tensor:type())
 end
-local function Tensor__cuda(self)
-   return self:type('torch.CudaTensor')
-end
-local function Tensor__double(self)
-   return self:type('torch.DoubleTensor')
-end
-local function Tensor__float(self)
-   return self:type('torch.FloatTensor')
-end
 
-local function Tensor__byte(self)
-   return self:type('torch.ByteTensor')
-end
+local TensorTypes = {
+   float  = 'torch.FloatTensor',
+   double = 'torch.DoubleTensor',
+   byte   = 'torch.ByteTensor',
+   char   = 'torch.CharTensor',
+   int    = 'torch.IntTensor',
+   short  = 'torch.ShortTensor',
+   long   = 'torch.LongTensor'
+}
 
-local function Tensor__char(self)
-   return self:type('torch.CharTensor')
-end
+local CudaTensorTypes = {
+   cuda       = 'torch.CudaTensor',
+   cudaDouble = 'torch.CudaDoubleTensor',
+   cudaByte   = 'torch.CudaByteTensor',
+   cudaChar   = 'torch.CudaCharTensor',
+   cudaInt    = 'torch.CudaIntTensor',
+   cudaShort  = 'torch.CudaShortTensor',
+   cudaLong   = 'torch.CudaLongTensor'
+}
 
-local function Tensor__int(self)
-   return self:type('torch.IntTensor')
-end
-
-local function Tensor__short(self)
-   return self:type('torch.ShortTensor')
-end
-
-local function Tensor__long(self)
-   return self:type('torch.LongTensor')
+function Tensor__converter(type)
+    return function(self)
+        return self:type(type)
+    end
 end
 
-rawset(torch.getmetatable('torch.DoubleTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.FloatTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.ByteTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.CharTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.IntTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.ShortTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.LongTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.CudaTensor'), 'cuda', Tensor__cuda)
+-- CPU -> CUDA
+for _, TensorType in pairs(TensorTypes) do
+    for DataType, CudaTensorType in pairs(CudaTensorTypes) do
+        rawset(torch.getmetatable(TensorType), DataType, Tensor__converter(CudaTensorType))
+    end
+end
 
-rawset(torch.getmetatable('torch.CudaTensor'), 'type', Tensor__type)
-rawset(torch.getmetatable('torch.CudaTensor'), 'typeAs', Tensor__typeAs)
-rawset(torch.getmetatable('torch.CudaTensor'), 'double', Tensor__double)
-rawset(torch.getmetatable('torch.CudaTensor'), 'float', Tensor__float)
-rawset(torch.getmetatable('torch.CudaTensor'), 'byte', Tensor__byte)
-rawset(torch.getmetatable('torch.CudaTensor'), 'char', Tensor__char)
-rawset(torch.getmetatable('torch.CudaTensor'), 'int', Tensor__int)
-rawset(torch.getmetatable('torch.CudaTensor'), 'short', Tensor__short)
-rawset(torch.getmetatable('torch.CudaTensor'), 'long', Tensor__long)
+-- CUDA -> CPU
+for _, CudaTensorType in pairs(CudaTensorTypes) do
+    rawset(torch.getmetatable(CudaTensorType), 'type', Tensor__type)
+    rawset(torch.getmetatable(CudaTensorType), 'typeAs', Tensor__typeAs)
+    for DataType, TensorType in pairs(TensorTypes) do
+       rawset(torch.getmetatable(CudaTensorType), DataType, Tensor__converter(TensorType))
+    end
+end
 
+-- FIXME: CUDA -> CUDA not yet implemented
+-- odd man out
+rawset(torch.getmetatable('torch.CudaTensor'), 'cuda', Tensor__converter('torch.CudaTensor'))
+
+--FIXME add conversions from CUDA types to other CUDA types
+--
 do
     local metatable = torch.getmetatable('torch.CudaTensor')
     for _,func in pairs{'expand', 'expandAs', 'view', 'viewAs', 'repeatTensor',

@@ -1,19 +1,22 @@
-#include "THCStorageCopy.h"
-#include "THCGeneral.h"
+#ifndef THC_GENERIC_FILE
+#define THC_GENERIC_FILE "generic/THCStorageCopy.cu"
+#else
 
-void THCudaStorage_rawCopy(THCState *state, THCudaStorage *self, float *src)
+void THCStorage_(rawCopy)(THCState *state, THCStorage *self, real *src)
 {
-  THCudaCheck(cudaMemcpyAsync(self->data, src, self->size * sizeof(float), cudaMemcpyDeviceToDevice, THCState_getCurrentStream(state)));
+  THCudaCheck(cudaMemcpyAsync(self->data, src, self->size * sizeof(real), cudaMemcpyDeviceToDevice, THCState_getCurrentStream(state)));
 }
 
-void THCudaStorage_copy(THCState *state, THCudaStorage *self, THCudaStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  THCudaCheck(cudaMemcpyAsync(self->data, src->data, self->size * sizeof(float), cudaMemcpyDeviceToDevice, THCState_getCurrentStream(state)));
-}
-
-void THCudaStorage_copyCuda(THCState *state, THCudaStorage *self, THCudaStorage *src)
+void THCStorage_(copy)(THCState *state, THCStorage *self, THCStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  THCudaCheck(cudaMemcpyAsync(self->data, src->data, self->size * sizeof(float), cudaMemcpyDeviceToDevice, THCState_getCurrentStream(state)));
+  THCudaCheck(cudaMemcpyAsync(self->data, src->data, self->size * sizeof(real), cudaMemcpyDeviceToDevice, THCState_getCurrentStream(state)));
 }
+
+void THCStorage_(copyCuda)(THCState *state, THCStorage *self, THCStorage *src)
+{
+  THArgCheck(self->size == src->size, 2, "size does not match");
+  THCudaCheck(cudaMemcpyAsync(self->data, src->data, self->size * sizeof(real), cudaMemcpyDeviceToDevice, THCState_getCurrentStream(state)));
+}
+
+#endif

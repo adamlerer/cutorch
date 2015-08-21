@@ -1,39 +1,39 @@
-#include "THCTensorCopy.h"
-#include "THCGeneral.h"
-#include "THCTensor.h"
+#ifndef THC_GENERIC_FILE
+#define THC_GENERIC_FILE "generic/THCTensorCopy.c"
+#else
 
 /* specific methods */
 
-void THCudaTensor_copyFloat(THCState *state, THCudaTensor *self, struct THFloatTensor *src)
+void THCTensor_(copyCPU)(THCState *state, THCTensor *self, struct THTensor *src)
 {
-  THArgCheck(THCudaTensor_nElement(state, self) == THFloatTensor_nElement(src), 2, "sizes do not match"); 
+  THArgCheck(THCTensor_(nElement)(state, self) == THTensor_(nElement)(src), 2, "sizes do not match"); 
 
   {
-    THCudaTensor *selfc = THCudaTensor_newContiguous(state, self);
-    src = THFloatTensor_newContiguous(src);
+    THCTensor *selfc = THCTensor_(newContiguous)(state, self);
+    src = THTensor_(newContiguous)(src);
   
-    THCudaCheck(cudaMemcpy(selfc->storage->data + selfc->storageOffset, src->storage->data + src->storageOffset, THFloatTensor_nElement(src) * sizeof(float), cudaMemcpyHostToDevice));
+    THCudaCheck(cudaMemcpy(selfc->storage->data + selfc->storageOffset, src->storage->data + src->storageOffset, THTensor_(nElement)(src) * sizeof(real), cudaMemcpyHostToDevice));
 
-    THFloatTensor_free(src);
-    THCudaTensor_freeCopyTo(state, selfc, self);
+    THTensor_(free)(src);
+    THCTensor_(freeCopyTo)(state, selfc, self);
   }
 }
 
-/* everything comes down to copy to a tensor of floats */
 #define IMPLEMENT_TH_CUDA_TENSOR_COPY(TYPEC)                            \
-void THCudaTensor_copy##TYPEC(THCState *state, THCudaTensor *self, struct TH##TYPEC##Tensor *src) \
+void THCTensor_(copy##TYPEC)(THCState *state, THCTensor *self, struct TH##TYPEC##Tensor *src)                \
 {                                                                       \
-  THArgCheck(THCudaTensor_nElement(state, self) == TH##TYPEC##Tensor_nElement(src), 2, "sizes do not match"); \
-                                                                        \
-  {                                                                     \
+  THArgCheck(THCTensor_(nElement)(state, self) == TH##TYPEC##Tensor_nElement(src), 2, "sizes do not match"); \
+  if(THCTypeIdx_(Real) == THCTypeIdx_(TYPEC)) {               \
+    THCTensor_(copyCPU)(state, self, (THTensor*) src);  /* cast just removes warnings */                     \
+  } else {                                                              \
     THLongStorage *size = TH##TYPEC##Tensor_newSizeOf(src);             \
-    THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);        \
+    THTensor *srcf = THTensor_(newWithSize)(size, NULL);                \
                                                                         \
-    THFloatTensor_copy##TYPEC(srcf, src);                               \
-    THCudaTensor_copyFloat(state, self, srcf);                                 \
+    THTensor_(copy##TYPEC)(srcf, src);                                  \
+    THCTensor_(copyCPU)(state, self, srcf);                             \
                                                                         \
     THLongStorage_free(size);                                           \
-    THFloatTensor_free(srcf);                                           \
+    THTensor_(free)(srcf);                                              \
   }                                                                     \
 }
 
@@ -42,43 +42,45 @@ IMPLEMENT_TH_CUDA_TENSOR_COPY(Char)
 IMPLEMENT_TH_CUDA_TENSOR_COPY(Short)
 IMPLEMENT_TH_CUDA_TENSOR_COPY(Int)
 IMPLEMENT_TH_CUDA_TENSOR_COPY(Long)
+IMPLEMENT_TH_CUDA_TENSOR_COPY(Float)
 IMPLEMENT_TH_CUDA_TENSOR_COPY(Double)
 
 /* copyCuda */
 
-void THFloatTensor_copyCuda(THCState *state, THFloatTensor *self, struct THCudaTensor *src)
+void THTensor_(copyCuda)(THCState *state, THTensor *self, struct THCTensor *src)
 {
-  THArgCheck(THFloatTensor_nElement(self) == THCudaTensor_nElement(state, src), 2, "sizes do not match");
+  THArgCheck(THTensor_(nElement)(self) == THCTensor_(nElement)(state, src), 2, "sizes do not match");
 
   {
-    THFloatTensor *selfc = THFloatTensor_newContiguous(self);
-    src = THCudaTensor_newContiguous(state, src);
+    THTensor *selfc = THTensor_(newContiguous)(self);
+    src = THCTensor_(newContiguous)(state, src);
 
     THCudaCheck(cudaMemcpy(selfc->storage->data + selfc->storageOffset,
                            src->storage->data + src->storageOffset,
-                           THCudaTensor_nElement(state, src) * sizeof(float),
+                           THCTensor_(nElement)(state, src) * sizeof(real),
                            cudaMemcpyDeviceToHost));
 
-    THCudaTensor_free(state, src);
-    THFloatTensor_freeCopyTo(selfc, self);
+    THCTensor_(free)(state, src);
+    THTensor_(freeCopyTo)(selfc, self);
   }
 }
 
-#define IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(TYPEC)                                                          \
-  void TH##TYPEC##Tensor_copyCuda(THCState *state, TH##TYPEC##Tensor *self, struct THCudaTensor *src) \
-  {                                                                                                      \
-    THArgCheck(TH##TYPEC##Tensor_nElement(self) == THCudaTensor_nElement(state, src), 2, "sizes do not match"); \
-                                                                                                         \
-    {                                                                                                    \
-      THLongStorage *size = THCudaTensor_newSizeOf(state, src);                                          \
-      THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);                                       \
-                                                                                                         \
-      THFloatTensor_copyCuda(state, srcf, src);                                                          \
-      TH##TYPEC##Tensor_copyFloat(self, srcf);                                                           \
-                                                                                                         \
-      THLongStorage_free(size);                                                                          \
-      THFloatTensor_free(srcf);                                                                          \
-    }                                                                                                    \
+#define IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(TYPEC)                           \
+  void TH_CONCAT_4(TH,TYPEC,Tensor_copyCuda,Real)(THCState *state, TH##TYPEC##Tensor *self, struct THCTensor *src) \
+  {                                                                       \
+    THArgCheck(TH##TYPEC##Tensor_nElement(self) == THCTensor_(nElement)(state, src), 2, "sizes do not match");       \
+    if(THCTypeIdx_(Real) == THCTypeIdx_(TYPEC)) {   \
+      THTensor_(copyCuda)(state, (THTensor*) self, src);  /* cast just removes compiler warning */                   \
+    } else {                                                              \
+      THLongStorage *size = THCTensor_(newSizeOf)(state, src);            \
+      THTensor *srcf = THTensor_(newWithSize)(size, NULL);                \
+                                                                          \
+      THTensor_(copyCuda)(state, srcf, src);                              \
+      TH_CONCAT_4(TH,TYPEC,Tensor_copy,Real)(self, srcf);                 \
+                                                                          \
+      THLongStorage_free(size);                                           \
+      THTensor_(free)(srcf);                                              \
+    }                                                                     \
   }
 
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Byte)
@@ -86,9 +88,13 @@ IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Char)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Short)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Int)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Long)
+IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Float)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Double)
 
-void THCudaTensor_copyCuda(THCState *state, THCudaTensor *self, THCudaTensor *src)
+// FIXME: add within-CUDA conversions
+void THCTensor_(copyCuda)(THCState *state, THCTensor *self, THCTensor *src)
 {
-  THCudaTensor_copy(state, self, src);
+  THCTensor_(copy)(state, self, src);
 }
+
+#endif
